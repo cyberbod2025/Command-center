@@ -34,10 +34,12 @@ dashboard/
 | `github.ts` | Única puerta de entrada a GitHub — lista cerrada de repos y comandos `gh`, sin shell string interpolation |
 | `decisions.ts` | Motor de decisiones: máquina de estados, transiciones válidas, historial |
 | `qa.ts` | Respuestas a las preguntas rápidas, derivadas de los campos ya registrados de cada decisión |
-| `actions.ts` | Cola de acciones: generación de paquetes Markdown, marcado de envío, evidencia, cierre verificado |
+| `verification.ts` | Plan efectivo (`computeEffectivePlan`) y vinculación de evidencia (`evidenceSatisfies`, `assertRequestMatchesCriteria`) — puro, sin I/O |
+| `actions.ts` | Cola de acciones: generación de paquetes Markdown (con el plan efectivo), marcado de envío, evidencia, cierre solo con evidencia que cumple criterios |
 | `audit.ts` | Registro de auditoría append-only |
 | `routes.ts` | Capa HTTP — traduce peticiones REST a llamadas de los módulos anteriores, sin lógica de negocio propia |
-| `index.ts` | Arranque del servidor Express, monta `/api` y sirve `src/public` como estático |
+| `app.ts` | Construye la app Express (`buildApp`) y el arranque en loopback (`listenLoopback`) — separado de `index.ts` para poder probarlo sin abrir un puerto real en cada test |
+| `index.ts` | Entrypoint: resuelve rutas de disco y arranca `app.ts` escuchando solo en `127.0.0.1` |
 
 El frontend (`src/public/app.js`) **no contiene lógica de GitHub ni de la
 máquina de estados** — solo hace `fetch` a `/api/*` y renderiza lo que recibe.

@@ -43,19 +43,37 @@ export class StateStore {
 
   /**
    * Aplica una mutacion sobre el estado actual y persiste el resultado.
-   * Las mutaciones se serializan para evitar condiciones de carrera entre
-   * peticiones concurrentes sobre el mismo archivo.
+   *
+   * `fn` puede ser sincrono O asincrono (por ejemplo, generar un paquete
+   * de ejecucion que escribe un archivo Markdown antes de terminar) — se
+   * espera su resolucion completa antes de escribir nada a disco.
+   *
+   * `fn` recibe un CLON profundo del estado actual, nunca el objeto en
+   * cache compartido. Si `fn` lanza o su promesa se rechaza (por ejemplo,
+   * porque falla la creacion del archivo del paquete, o una transicion de
+   * estado no es valida), el clon se descarta por completo: no se escribe
+   * el archivo JSON, no se actualiza `this.cache`, y ninguna mutacion
+   * parcial (decision a medias, accion a medias, entradas de auditoria
+   * sueltas) queda persistida ni visible en la siguiente lectura.
+   *
+   * Las mutaciones se serializan (una cola de promesas) para evitar
+   * condiciones de carrera entre peticiones concurrentes sobre el mismo
+   * archivo.
    */
-  async mutate<T>(fn: (state: CommandCenterState) => T): Promise<T> {
+  async mutate<T>(fn: (state: CommandCenterState) => T | Promise<T>): Promise<T> {
     const run = this.writeLock.then(async () => {
-      const state = await this.load();
-      const result = fn(state);
-      state.updatedAt = nowIso();
-      await this.writeAtomic(state);
-      this.cache = state;
+      const current = await this.load();
+      const draft = structuredClone(current);
+      const result = await fn(draft);
+      draft.updatedAt = nowIso();
+      await this.writeAtomic(draft);
+      this.cache = draft;
       return result;
     });
-    this.writeLock = run.catch(() => undefined);
+    this.writeLock = run.then(
+      () => undefined,
+      () => undefined
+    );
     return run;
   }
 

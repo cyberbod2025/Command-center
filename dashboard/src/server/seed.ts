@@ -68,6 +68,17 @@ export function buildSeedState(): CommandCenterState {
         "git log en main mostrando ambos squashes en orden",
       ],
     },
+    verification: {
+      project: "Command Center",
+      expectedRepo: "cyberbod2025/Command-center",
+      allowedEvidenceKinds: ["pr_updated", "merge"],
+      expectedPrNumber: 2,
+      requiredState: "pr_merged",
+      extraConditions: [
+        "Esta decision cubre primero el cierre del PR #2. El PR #3 requiere su propia accion/paquete con expectedPrNumber=3 una vez el #2 este fusionado.",
+      ],
+      minEvidence: 1,
+    },
     state: "propuesta",
   });
 
@@ -105,6 +116,17 @@ export function buildSeedState(): CommandCenterState {
       riesgos: ["Ninguno mientras la auditoria sea de solo lectura"],
       revertir: "No aplica - es un paso de verificacion, no de cambio",
       evidenciaEsperada: ["Salida de list_projects / get_advisors de Supabase", "Actualizacion de R-11 en RIESGOS.md y de ESTADO.md"],
+    },
+    verification: {
+      project: "SASE Zero",
+      expectedRepo: null,
+      allowedEvidenceKinds: ["manual"],
+      requiredState: "manual_confirmation",
+      extraConditions: [
+        "Esta accion es sobre acceso a una cuenta Supabase, no sobre GitHub. No acepta evidencia de PRs, commits ni comentarios.",
+        "La confirmacion la registra Hugo manualmente tras verificar el acceso el mismo.",
+      ],
+      minEvidence: 1,
     },
     state: "bloqueada",
   });
@@ -153,6 +175,16 @@ export function buildSeedState(): CommandCenterState {
       riesgos: ["Rotar sin inventariar consumidores podria romper aplicaciones activas"],
       revertir: "No aplica a esta decision - es una aceptacion de riesgo, no un cambio",
       evidenciaEsperada: ["RIESGOS.md R-13 actualizado en cada etapa futura"],
+    },
+    verification: {
+      project: "SASE Zero",
+      expectedRepo: null,
+      allowedEvidenceKinds: ["manual"],
+      requiredState: "manual_confirmation",
+      extraConditions: [
+        "Aceptacion de riesgo, no accion de GitHub ni de Supabase todavia. La rotacion real es una decision futura distinta.",
+      ],
+      minEvidence: 1,
     },
     state: "aceptada",
   });
@@ -203,6 +235,16 @@ export function buildSeedState(): CommandCenterState {
       riesgos: ["Ninguno tecnico - son pasos de lectura y un cambio documental"],
       revertir: "Editar o eliminar la fila en un commit posterior; no afecta nada fuera del documento",
       evidenciaEsperada: ["Indice documental de Drive", "Diff de ESTADO.md", "Nueva entrada en DECISIONES.md"],
+    },
+    verification: {
+      project: "Teacher OS",
+      expectedRepo: null,
+      allowedEvidenceKinds: ["manual"],
+      requiredState: "manual_confirmation",
+      extraConditions: [
+        "Esta accion es sobre Google Drive, no sobre GitHub. No acepta evidencia de PRs, commits ni comentarios.",
+      ],
+      minEvidence: 1,
     },
     state: "propuesta",
   });

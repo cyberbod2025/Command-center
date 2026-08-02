@@ -20,9 +20,14 @@ npm install
 npm run dev
 ```
 
-Sirve en `http://localhost:4173` (configurable con la variable de entorno
-`PORT`). El frontend (`src/public/`) no tiene build step — se sirve tal cual
-como estático, así que basta recargar el navegador tras editarlo.
+Sirve **únicamente** en `http://127.0.0.1:4173` (equivalente a
+`http://localhost:4173`; el puerto es configurable con la variable de entorno
+`PORT`). El servidor escucha explícitamente en la interfaz de loopback
+(`app.listen(port, "127.0.0.1")`, ver `src/server/app.ts`) — no se expone en
+`0.0.0.0` ni en ninguna interfaz de red externa, así que no es alcanzable
+desde otra máquina de la red. El frontend (`src/public/`) no tiene build
+step — se sirve tal cual como estático, así que basta recargar el navegador
+tras editarlo.
 
 ## Producción local (build + start)
 

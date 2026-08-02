@@ -53,6 +53,27 @@ implementadas como ausencia total de código, no como flags apagados:
   ni mostraría su contenido (no implementado aún porque no hay `.env` que
   detectar todavía).
 
+## Superficie de red
+
+El servidor escucha únicamente en `127.0.0.1` (`src/server/app.ts::listenLoopback`),
+nunca en `0.0.0.0` ni en una interfaz externa. La única URL soportada en esta
+fase es `http://127.0.0.1:4173` (o `http://localhost:4173`, su equivalente).
+Otra máquina en la misma red no puede alcanzar la app.
+
+## Evidencia vinculada a la acción (no "cualquier PR del repo")
+
+`completeActionIfVerified` ya no acepta "alguna evidencia verificada contra
+GitHub" — cada `Decision`/`ActionRecord` declara `VerificationCriteria`
+estructurados (repositorio esperado, tipo de evidencia permitido, PR/rama/commit
+esperado cuando aplica, estado requerido). `verification.ts::evidenceSatisfies`
+compara cada evidencia registrada contra esos criterios exactos antes de
+contarla, y `assertRequestMatchesCriteria` rechaza la llamada a GitHub *antes*
+de hacerla si el repo/PR solicitado no coincide con lo que la acción espera.
+Esto impide: usar un PR de otro proyecto, un PR abierto como prueba de cierre,
+un comentario como prueba de un merge, o evidencia de GitHub para una acción
+sobre Drive/Supabase (`expectedRepo: null` en esas decisiones). Ver
+`DATA-MODEL.md` para el detalle del modelo.
+
 ## Auditoría
 
 Cada mutación (aceptar, rechazar, modificar, preguntar, proponer, posponer,

@@ -22,12 +22,15 @@ import {
 import { QUICK_QUESTIONS, answerQuickQuestion } from "./qa.js";
 import {
   ActionNotFoundError,
+  ActionNotWritableError,
   addActionEvidence,
+  assertCanPublishComment,
   completeActionIfVerified,
   findAction,
   generateExecutionPackage,
   markActionSent,
 } from "./actions.js";
+import { assertRequestMatchesCriteria, EvidenceMismatchError } from "./verification.js";
 import { recordAudit } from "./audit.js";
 import { getSaseZeroFront, getTeacherOsFront, getNuevoHorizonteFront } from "./fronts.js";
 import path from "node:path";
@@ -41,7 +44,12 @@ export function buildRouter(store: StateStore, actionsDir: string): Router {
       res.status(404).json({ error: err.message });
       return;
     }
-    if (err instanceof InvalidTransitionError || err instanceof RepoNotAllowedError) {
+    if (
+      err instanceof InvalidTransitionError ||
+      err instanceof RepoNotAllowedError ||
+      err instanceof EvidenceMismatchError ||
+      err instanceof ActionNotWritableError
+    ) {
       res.status(400).json({ error: err.message });
       return;
     }
@@ -234,8 +242,13 @@ export function buildRouter(store: StateStore, actionsDir: string): Router {
 
   router.post("/decisions/:id/generate-package", async (req, res) => {
     try {
+      const override = {
+        expectedPrNumber: req.body?.expectedPrNumber !== undefined ? Number(req.body.expectedPrNumber) : undefined,
+        expectedBranch: typeof req.body?.expectedBranch === "string" ? req.body.expectedBranch : undefined,
+        expectedCommitShort: typeof req.body?.expectedCommitShort === "string" ? req.body.expectedCommitShort : undefined,
+      };
       const result = await store.mutate(async (state) => {
-        const r = await generateExecutionPackage(state, req.params.id, actionsDir);
+        const r = await generateExecutionPackage(state, req.params.id, actionsDir, override);
         recordAudit(state, {
           actor: "hugo",
           category: "action",
@@ -306,8 +319,16 @@ export function buildRouter(store: StateStore, actionsDir: string): Router {
       return;
     }
     try {
+      // Rechaza ANTES de llamar a GitHub si el repo/PR no coinciden con lo
+      // que esta accion concreta espera (evita "cualquier PR del mismo
+      // repositorio" y "PR de otro proyecto").
+      const stateForCheck = await store.load();
+      const actionForCheck = findAction(stateForCheck, req.params.id);
+      assertRequestMatchesCriteria(actionForCheck.verification, repo, prNumber);
+
       const pr = await getPullRequest(repo, prNumber);
       const openThreads = pr.reviewThreads.filter((t) => !t.isResolved).length;
+      const checksAllGreen = pr.checks.length > 0 && pr.checks.every((c) => c.conclusion === "SUCCESS" || c.conclusion === "success");
       const description =
         `PR #${pr.number} (${repo}) estado=${pr.state}, mergeable=${pr.mergeable ?? "desconocido"}, ` +
         `reviewDecision=${pr.reviewDecision ?? "ninguna"}, hilos abiertos=${openThreads}/${pr.reviewThreads.length}, ` +
@@ -319,6 +340,14 @@ export function buildRouter(store: StateStore, actionsDir: string): Router {
           description,
           url: pr.url,
           verifiedAgainstGithub: true,
+          repo,
+          prNumber: pr.number,
+          prState: pr.state,
+          branch: pr.headRefName,
+          commitShort: pr.headRefOidShort,
+          openThreads,
+          totalThreads: pr.reviewThreads.length,
+          checksAllGreen,
         });
         recordAudit(state, { actor: "sistema", category: "github_read", action: "verify", detail: description, refId: action.id });
         return action;
@@ -383,24 +412,59 @@ export function buildRouter(store: StateStore, actionsDir: string): Router {
       res.status(400).json({ error: "Esta accion requiere confirmacion explicita (confirm: true) tras revisar la vista previa." });
       return;
     }
+
+    // Pasos 1-4: la accion existe, su estado lo permite, admite escritura
+    // remota, y el repo/PR coinciden con lo que espera — todo ANTES de
+    // considerar siquiera llamar a `gh`. Si algo falla aqui, no hay ningun
+    // efecto remoto.
+    try {
+      await store.mutate((state) => {
+        assertCanPublishComment(state, req.params.id, repo, prNumber);
+      });
+    } catch (err) {
+      handleError(res, err);
+      return;
+    }
+
     const auth = await getAuthStatus();
     if (!auth.available) {
       res.status(503).json({ error: `Accion deshabilitada: ${auth.detail}` });
       return;
     }
+
+    // Paso 5: registrar intencion de auditoria antes de la llamada remota.
+    await store.mutate((state) => {
+      recordAudit(state, {
+        actor: "hugo",
+        category: "github_write",
+        action: "publish_comment_intent",
+        detail: `Intencion de publicar comentario en ${repo}#${prNumber} (accion ${req.params.id})`,
+        refId: req.params.id,
+      });
+    });
+
     try {
+      // Paso 6: publicar.
       const { url } = await postPullRequestComment(repo, prNumber, body);
+      const commentIdMatch = url.match(/#(?:issuecomment|discussion_r)-?(\d+)/);
+      const commentId = commentIdMatch?.[1];
+
+      // Pasos 7-8: guardar URL/ID como evidencia y registrar el resultado.
       const a = await store.mutate((state) => {
         const action = addActionEvidence(state, req.params.id, {
           kind: "comment",
           description: `Comentario publicado en ${repo}#${prNumber}`,
           url,
+          commentUrl: url,
+          commentId,
           verifiedAgainstGithub: true,
+          repo,
+          prNumber,
         });
         recordAudit(state, {
           actor: "hugo",
           category: "github_write",
-          action: "publish_comment",
+          action: "publish_comment_result",
           detail: `Comentario publicado en ${repo}#${prNumber}: ${url}`,
           refId: action.id,
         });
@@ -408,6 +472,15 @@ export function buildRouter(store: StateStore, actionsDir: string): Router {
       });
       res.json({ action: a, url });
     } catch (err) {
+      await store.mutate((state) => {
+        recordAudit(state, {
+          actor: "sistema",
+          category: "github_write",
+          action: "publish_comment_failed",
+          detail: `Fallo al publicar comentario en ${repo}#${prNumber}: ${err instanceof Error ? err.message : "error desconocido"}`,
+          refId: req.params.id,
+        });
+      });
       handleError(res, err);
     }
   });

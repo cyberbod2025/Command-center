@@ -71,6 +71,36 @@ export interface ExecutionPlan {
   evidenciaEsperada: string[];
 }
 
+export type EvidenceKind = "commit" | "pr_updated" | "comment" | "thread_resolved" | "check_run" | "merge" | "manual";
+
+export type RequiredEvidenceState =
+  | "pr_open"
+  | "pr_closed"
+  | "pr_merged"
+  | "comment_published"
+  | "thread_resolved"
+  | "checks_green"
+  | "commit_exists"
+  | "manual_confirmation";
+
+/**
+ * Criterios estructurados que definen QUE evidencia concreta cierra una
+ * accion. `expectedRepo: null` significa "esta accion no acepta evidencia
+ * de GitHub" (p. ej. decisiones sobre Drive o Supabase) — solo evidencia
+ * `manual` puede satisfacerla.
+ */
+export interface VerificationCriteria {
+  project: Decision["project"];
+  expectedRepo: string | null;
+  allowedEvidenceKinds: EvidenceKind[];
+  expectedPrNumber?: number;
+  expectedBranch?: string;
+  expectedCommitShort?: string;
+  requiredState: RequiredEvidenceState;
+  extraConditions: string[];
+  minEvidence: number;
+}
+
 export interface Decision {
   id: string;
   createdAt: string;
@@ -89,6 +119,7 @@ export interface Decision {
   reversibilityNote: string;
   affected: string[];
   plan: ExecutionPlan;
+  verification: VerificationCriteria;
   state: DecisionState;
   rejectionReason?: string;
   history: HistoryEntry[];
@@ -111,10 +142,21 @@ export type ActionStatus =
 export interface ActionEvidence {
   id: string;
   ts: string;
-  kind: "commit" | "pr_updated" | "comment" | "thread_resolved" | "check_run" | "merge" | "manual";
+  kind: EvidenceKind;
   description: string;
   url?: string;
   verifiedAgainstGithub: boolean;
+  /** Datos estructurados para poder cotejar la evidencia contra VerificationCriteria. */
+  repo?: string;
+  prNumber?: number;
+  prState?: "OPEN" | "CLOSED" | "MERGED";
+  branch?: string;
+  commitShort?: string;
+  openThreads?: number;
+  totalThreads?: number;
+  checksAllGreen?: boolean;
+  commentUrl?: string;
+  commentId?: string;
 }
 
 export interface ActionRecord {
@@ -124,6 +166,8 @@ export interface ActionRecord {
   updatedAt: string;
   packagePath: string;
   status: ActionStatus;
+  /** Copia congelada de los criterios de la decision en el momento de generar el paquete. */
+  verification: VerificationCriteria;
   sentTo?: {
     ts: string;
     agent: string;
