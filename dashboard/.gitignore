@@ -1,0 +1,7 @@
+node_modules/
+dist/
+data/command-center-state.json
+data/backups/*.json
+!data/backups/.gitkeep
+.env
+.env.*
