@@ -26,7 +26,7 @@ Seguir en orden. Cada paso exige evidencia antes de pasar al siguiente.
 2. **Crear o identificar el proyecto Supabase.**
    `list_projects` → si no existe, `create_project`. Registrar el `project_id` en este archivo, no solo en memoria de chat.
 3. **Verificar que el `.env` del repo apunta al proyecto Supabase correcto.**
-   Comparar `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_URL` del `.env` contra `get_project_url(project_id)`. Si no coincide, es evidencia de desalineación — se corrige antes de desplegar, no después.
+   Comparar `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_URL` del `.env` contra `get_project_url(project_id)`. En apps Vite (caso SASE Zero, que usa `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`), comparar también esas variables — son las que la app realmente consume, no `NEXT_PUBLIC_*`/`SUPABASE_*`. Si no coincide, es evidencia de desalineación — se corrige antes de desplegar, no después.
 4. **Crear o identificar el proyecto Vercel.**
    `list_projects` (con `teamId` de `list_teams`) → si no existe, se crea al desplegar por primera vez.
 5. **Configurar variables de entorno en Vercel** con las mismas claves que el `.env` local: URL de Supabase + `publishable key` (`get_publishable_keys`). Nunca la `service_role` key en Vercel del lado cliente.
