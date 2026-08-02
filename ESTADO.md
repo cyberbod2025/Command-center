@@ -20,6 +20,8 @@ El Command Center dejó de vivir solo como carpeta de documentos y ahora cuenta 
 
 **Próxima acción concreta:** confirmar con Hugo si `_Shared/COMMAND-CENTER` se retira ahora que el repositorio `Command-center` es la fuente canónica, o si se mantiene temporalmente como respaldo. Mientras no haya confirmación, tratar `Command-center` (este repo) como la fuente de verdad y `_Shared/COMMAND-CENTER` como copia histórica no autoritativa.
 
+**Handoff para el siguiente agente (2026-08-01):** Sigue en Command-center: [PR #1](https://github.com/cyberbod2025/Command-center/pull/1) abierto (`docs/registrar-repositorio-command-center`), sin mergear. Pendiente: decidir si se retira `_Shared/COMMAND-CENTER`. Lee este `ESTADO.md` antes de tocar nada.
+
 ---
 
 ## Vista general
