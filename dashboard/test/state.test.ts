@@ -143,9 +143,7 @@ describe("StateStore", () => {
     const badActionsDir = path.join(dir, "no-existe", String.fromCharCode(0)); // ruta invalida a proposito
 
     const { generateExecutionPackage } = await import("../src/server/actions.js");
-    await expect(
-      store.mutate((s) => generateExecutionPackage(s, decisionId, badActionsDir))
-    ).rejects.toThrow();
+    await expect(generateExecutionPackage(store, decisionId, badActionsDir)).rejects.toThrow();
 
     const after = await store.load();
     expect(after.actions.length).toBe(actionsCountBefore);

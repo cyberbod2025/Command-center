@@ -56,8 +56,27 @@ propuesta → (Hugo: pregunta / modifica / propone / pospone) → aceptada / mod
    → completar (solo si hay ≥1 evidencia verificada) → completada
 ```
 
-Ningún paso "completa" una acción sin evidencia verificada contra una fuente
-real. Ver `SECURITY.md` para el detalle de qué queda fuera de esta versión.
+Ningún paso "completa" una acción sin evidencia que cumpla exactamente los
+criterios declarados de esa acción. Ver `SECURITY.md` para el detalle de qué
+queda fuera de esta versión.
+
+## Consistencia paquete/estado (sin huérfanos)
+
+`generateExecutionPackage` (`actions.ts`) no escribe el Markdown directo a su
+nombre final ni lo hace dentro de una única mutación ciega. Sigue tres fases:
+
+1. Escribe el Markdown a una ruta **temporal** (`<archivo>.md.tmp`).
+2. Confirma el estado (JSON) en una mutación atómica de `StateStore` que
+   registra la acción — si esta mutación falla por cualquier motivo, borra
+   el temporal y no persiste nada a medias.
+3. Solo entonces renombra el temporal a su nombre final. Si el renombrado
+   falla, marca la acción como `fallida` (mutación de compensación) y borra
+   el temporal — nunca queda un archivo Markdown "vivo" sin una acción
+   válida que lo respalde, ni una acción que apunte a un archivo inexistente
+   como si estuviera lista.
+
+Ver `docs/DATA-MODEL.md` para el detalle de `dependsOnActionId`/`chainIndex`
+(cadenas de acciones dependientes) y de la evidencia manual.
 
 ## Por qué un archivo JSON y no una base de datos
 

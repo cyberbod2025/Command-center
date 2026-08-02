@@ -154,11 +154,23 @@ describe("computeEffectivePlan", () => {
     expect(effective.diffs.some((diff) => diff.field === "restricciones")).toBe(true);
   });
 
-  it("el orden modificado se refleja al inicio de los pasos efectivos", () => {
+  it("el orden modificado reemplaza por completo la secuencia (permutacion numerica)", () => {
+    const state = buildSeedState();
+    const d = state.decisions.find((x) => x.state === "propuesta")!;
+    const n = d.plan.pasos.length;
+    const original = [...d.plan.pasos];
+    const invertido = Array.from({ length: n }, (_, i) => String(n - i)).join(",");
+    d.modifications.push({ id: "mod_1", ts: new Date().toISOString(), orden: invertido });
+    const effective = computeEffectivePlan(d);
+    expect(effective.pasos).toEqual([...original].reverse());
+    expect(effective.pasos[0]).toBe(original[n - 1]);
+    expect(effective.pasos[n - 1]).toBe(original[0]);
+  });
+
+  it("una instruccion de orden ambigua (no numerica) lanza un error, no se antepone como texto", () => {
     const state = buildSeedState();
     const d = state.decisions.find((x) => x.state === "propuesta")!;
     d.modifications.push({ id: "mod_1", ts: new Date().toISOString(), orden: "Primero verificar checks, luego mergear" });
-    const effective = computeEffectivePlan(d);
-    expect(effective.pasos[0]).toContain("Primero verificar checks, luego mergear");
+    expect(() => computeEffectivePlan(d)).toThrow(/orden modificado debe listar/);
   });
 });

@@ -34,3 +34,16 @@
   `data/actions/*.md` se edita a mano** — la app no vuelve a leer ese archivo
   salvo para mostrarlo ("Ver paquete"); el estado de la acción vive en
   `command-center-state.json`, no en el Markdown.
+- **La detección de "revisión de Codex" (`requireCodexReview`) es heurística**:
+  busca `/codex/i` en el login del autor de cada review devuelta por
+  `gh pr view --json reviews` (`github.ts::hasCodexReview`). Si el bot cambia
+  de nombre de usuario, esta comprobación deja de encontrarlo — no valida
+  contenido de la revisión, solo su procedencia.
+- **Las cadenas de acciones dependientes (`additionalActionPlan`) son lineales
+  y viven solo en la decisión que las define** — no hay soporte todavía para
+  ramificar en más de una secuencia paralela ni para decisiones con más de
+  un `additionalActionPlan` distinto según una condición.
+- **El endpoint de readiness (`GET /actions/:id/readiness`) recalcula
+  criterios en cada llamada** — la interfaz hace una petición por acción
+  visible en la cola; con muchas acciones esto es más tráfico que un campo
+  precalculado, aceptable a esta escala (un solo usuario).

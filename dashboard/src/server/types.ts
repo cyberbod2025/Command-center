@@ -95,8 +95,22 @@ export interface VerificationCriteria {
   allowedEvidenceKinds: EvidenceKind[];
   expectedPrNumber?: number;
   expectedBranch?: string;
+  /** Rama base requerida del PR (p. ej. "main"), distinta de expectedBranch (rama head). */
+  expectedBaseBranch?: string;
   expectedCommitShort?: string;
   requiredState: RequiredEvidenceState;
+  /** Exige openThreads === 0 en la evidencia para contar. */
+  requireZeroOpenThreads?: boolean;
+  /** Exige que exista una revision de Codex detectada sobre el commit evaluado. */
+  requireCodexReview?: boolean;
+  /**
+   * Etiquetas de confirmacion manual que deben existir ademas de la
+   * evidencia principal (p. ej. "diff_scope_confirmado"). Cada etiqueta debe
+   * tener al menos una ActionEvidence con kind="manual" y ese
+   * confirmationTag — no cuenta hacia minEvidence, es un requisito aparte.
+   */
+  requiredManualConfirmationTags?: string[];
+  /** Contexto informativo para humanos — NUNCA se evalua para decidir si una accion se completa. */
   extraConditions: string[];
   minEvidence: number;
 }
@@ -119,7 +133,17 @@ export interface Decision {
   reversibilityNote: string;
   affected: string[];
   plan: ExecutionPlan;
+  /** Criterios de la PRIMERA (o unica) accion generada desde esta decision. */
   verification: VerificationCriteria;
+  /**
+   * Cuando una decision requiere MAS de un resultado verificable en orden
+   * (p. ej. cerrar PR #2 y luego PR #3), cada entrada describe la accion
+   * dependiente siguiente. La accion N+1 no puede generarse hasta que la
+   * accion N este completada, y la decision solo se marca completada cuando
+   * TODAS las acciones (la de `verification` + cada una de esta lista)
+   * estan completadas, en orden.
+   */
+  additionalActionPlan?: VerificationCriteria[];
   state: DecisionState;
   rejectionReason?: string;
   history: HistoryEntry[];
@@ -155,8 +179,19 @@ export interface ActionEvidence {
   openThreads?: number;
   totalThreads?: number;
   checksAllGreen?: boolean;
+  baseBranch?: string;
+  codexReviewFound?: boolean;
   commentUrl?: string;
   commentId?: string;
+  /** Vincula esta evidencia manual a un VerificationCriteria.requiredManualConfirmationTags. */
+  confirmationTag?: string;
+  // Campos de evidencia manual (Teacher OS / Supabase / otras fuentes sin GitHub):
+  evidenceType?: string;
+  source?: string;
+  occurredAt?: string;
+  responsible?: string;
+  reference?: string;
+  notes?: string;
 }
 
 export interface ActionRecord {
@@ -168,6 +203,10 @@ export interface ActionRecord {
   status: ActionStatus;
   /** Copia congelada de los criterios de la decision en el momento de generar el paquete. */
   verification: VerificationCriteria;
+  /** Si esta definido, esta accion no puede completarse hasta que la accion referida este "completada". */
+  dependsOnActionId?: string;
+  /** Posicion (0-based) de esta accion dentro de la cadena de la decision (verification + additionalActionPlan). */
+  chainIndex?: number;
   sentTo?: {
     ts: string;
     agent: string;

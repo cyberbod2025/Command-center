@@ -381,7 +381,7 @@
         <label>Alcance</label><textarea rows="2" data-f="alcance"></textarea>
         <label>Prioridad</label><input type="text" data-f="prioridad">
         <label>Condiciones</label><textarea rows="2" data-f="condiciones"></textarea>
-        <label>Orden</label><textarea rows="2" data-f="orden"></textarea>
+        <label>Orden (lista de posiciones separadas por coma, ej. "2,1,3,4" — reemplaza por completo la secuencia)</label><textarea rows="2" data-f="orden" placeholder="ej. 2,1,3,4,5,6"></textarea>
         <label>Restricciones</label><textarea rows="2" data-f="restricciones"></textarea>
         <label>Resultado esperado</label><textarea rows="2" data-f="resultadoEsperado"></textarea>
         <div class="dsubmit-row"><button class="dbtn primary" data-ok>Aplicar modificación</button><button class="dbtn" data-cancel>Cancelar</button></div>`;
@@ -455,21 +455,46 @@
   }
 
   // ================= Actions queue =================
+  const READINESS_LABEL = {
+    ready: { text: "Evidencia suficiente", cls: "completada" },
+    insufficient: { text: "Evidencia insuficiente", cls: "generada" },
+    missing: { text: "Criterios faltantes", cls: "fallida" },
+  };
+
+  function readinessPillHtml(readiness) {
+    if (!readiness) return "";
+    let kind = "insufficient";
+    if (readiness.ready) kind = "ready";
+    else if (readiness.missingManualTags?.length) kind = "missing";
+    const label = READINESS_LABEL[kind];
+    const detail = readiness.missingManualTags?.length
+      ? ` (faltan: ${readiness.missingManualTags.join(", ")})`
+      : ` (${readiness.satisfying}/${readiness.minEvidence})`;
+    return `<span class="astatus ${label.cls}" title="${esc(readiness.criteria)}">${label.text}${esc(detail)}</span>`;
+  }
+
   function actionRowHtml(a) {
     const decision = cache.decisions.find((d) => d.id === a.decisionId);
-    const verifiedCount = a.evidence.filter((e) => e.verifiedAgainstGithub).length;
+    const readiness = cache.readiness?.[a.id];
+    const acceptsManual = a.verification.allowedEvidenceKinds.includes("manual");
+    const dependency = a.dependsOnActionId ? cache.actions.find((x) => x.id === a.dependsOnActionId) : null;
+    const chainNote = a.chainIndex !== undefined && dependency
+      ? `<div style="color:var(--text-dim); font-size:11px;">depende de: ${esc(dependency.id)} (${esc(ACTION_STATE_LABEL[dependency.status] || dependency.status)})</div>`
+      : "";
     return `<div class="action-row" data-id="${a.id}">
       <span class="astatus ${a.status}">${ACTION_STATE_LABEL[a.status] || a.status}</span>
       <div>
-        <div><b>${esc(decision ? decision.question : a.decisionId)}</b></div>
-        <div style="color:var(--text-dim); font-size:11px;">${esc(a.packagePath)} · evidencia verificada: ${verifiedCount}${a.sentTo ? ` · enviada a ${esc(a.sentTo.agent)} (${fmtTs(a.sentTo.ts)})` : ""}</div>
+        <div><b>${esc(decision ? decision.question : a.decisionId)}</b> ${readinessPillHtml(readiness)}</div>
+        <div style="color:var(--text-dim); font-size:11px;">${esc(a.packagePath)}${a.sentTo ? ` · enviada a ${esc(a.sentTo.agent)} (${fmtTs(a.sentTo.ts)})` : ""}</div>
+        ${chainNote}
       </div>
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
         <button class="dbtn" data-a="view">Ver paquete</button>
         ${a.status === "generada" ? '<button class="dbtn" data-a="sent">Marcar enviada</button>' : ""}
-        <button class="dbtn" data-a="verify">Verificar en GitHub</button>
-        <button class="dbtn primary" data-a="complete" ${verifiedCount ? "" : "disabled title=\"Necesita al menos una evidencia verificada\""}>Completar</button>
-        <button class="dbtn" data-a="comment" ${cache.ghAvailable ? "" : "disabled title=\"conexión no disponible\""}>Publicar comentario en PR</button>
+        ${a.verification.expectedRepo ? '<button class="dbtn" data-a="verify">Verificar en GitHub</button>' : ""}
+        ${acceptsManual ? '<button class="dbtn" data-a="manual">Registrar evidencia manual</button>' : ""}
+        <button class="dbtn primary" data-a="complete" ${readiness?.ready ? "" : "disabled title=\"Evidencia insuficiente para los criterios de esta acción\""}>Completar</button>
+        <button class="dbtn" data-a="comment" ${cache.ghAvailable && a.verification.allowedEvidenceKinds.includes("comment") ? "" : "disabled title=\"no disponible para esta acción\""}>Publicar comentario en PR</button>
       </div>
     </div>`;
   }
@@ -479,6 +504,14 @@
     try {
       const { actions } = await api("/actions");
       cache.actions = actions;
+      cache.readiness = {};
+      await Promise.all(
+        actions.map((a) =>
+          api(`/actions/${a.id}/readiness`)
+            .then((r) => { cache.readiness[a.id] = r; })
+            .catch(() => { cache.readiness[a.id] = null; })
+        )
+      );
       el.innerHTML = actions.length ? actions.slice().reverse().map(actionRowHtml).join("") : '<p class="empty-note">Sin acciones generadas todavía.</p>';
       wireActions();
       renderKpis(cache.lastFronts);
@@ -525,6 +558,57 @@
         toast(`Evidencia registrada desde GitHub (PR #${prNumber}).`);
         await loadActions();
       } catch (err) { toast(err.message); }
+      return;
+    }
+    if (kind === "manual") {
+      openModal(
+        "Registrar evidencia manual",
+        `<h4>Descripción</h4><textarea id="me-description" rows="2" style="width:100%; font-family:var(--sans); font-size:12.5px; padding:7px 9px; border-radius:var(--radius); border:1px solid var(--line); background:var(--panel); color:var(--text);"></textarea>
+        <h4>Tipo de evidencia</h4><input id="me-type" type="text" placeholder="p. ej. confirmacion_acceso, inventario_drive" style="width:100%; font-family:var(--sans); font-size:12.5px; padding:7px 9px; border-radius:var(--radius); border:1px solid var(--line); background:var(--panel); color:var(--text);">
+        <h4>Fuente</h4><input id="me-source" type="text" placeholder="p. ej. Supabase dashboard, carpeta de Drive" style="width:100%; margin-bottom:8px; padding:6px 8px;">
+        <h4>Fecha</h4><input id="me-date" type="date" style="margin-bottom:8px;">
+        <h4>Responsable</h4><input id="me-responsible" type="text" placeholder="Hugo" style="width:100%; margin-bottom:8px; padding:6px 8px;">
+        <h4>Referencia o ruta (opcional)</h4><input id="me-reference" type="text" style="width:100%; margin-bottom:8px; padding:6px 8px;">
+        <h4>Notas</h4><textarea id="me-notes" rows="2" style="width:100%; padding:6px 8px;"></textarea>
+        <div id="me-preview" style="display:none; margin-top:12px; padding:10px; border:1px dashed var(--line); border-radius:var(--radius); font-size:12px;"></div>`,
+        '<button class="dbtn" id="modal-cancel">Cancelar</button><button class="dbtn" id="modal-preview">Vista previa</button><button class="dbtn primary" id="modal-confirm" disabled>Confirmar registro</button>'
+      );
+      document.getElementById("modal-cancel").addEventListener("click", closeModal);
+      const readField = (fieldId) => document.getElementById(fieldId).value.trim();
+      document.getElementById("modal-preview").addEventListener("click", () => {
+        const payload = {
+          description: readField("me-description"),
+          evidenceType: readField("me-type"),
+          source: readField("me-source"),
+          occurredAt: readField("me-date"),
+          responsible: readField("me-responsible"),
+          reference: readField("me-reference"),
+          notes: readField("me-notes"),
+        };
+        if (!payload.description || !payload.evidenceType) {
+          toast("Descripción y tipo de evidencia son obligatorios.");
+          return;
+        }
+        const preview = document.getElementById("me-preview");
+        preview.style.display = "block";
+        preview.innerHTML = `<b>Vista previa</b><br>
+          <b>Descripción:</b> ${esc(payload.description)}<br>
+          <b>Tipo:</b> ${esc(payload.evidenceType)}<br>
+          ${payload.source ? `<b>Fuente:</b> ${esc(payload.source)}<br>` : ""}
+          ${payload.occurredAt ? `<b>Fecha:</b> ${esc(payload.occurredAt)}<br>` : ""}
+          ${payload.responsible ? `<b>Responsable:</b> ${esc(payload.responsible)}<br>` : ""}
+          ${payload.reference ? `<b>Referencia:</b> ${esc(payload.reference)}<br>` : ""}
+          ${payload.notes ? `<b>Notas:</b> ${esc(payload.notes)}` : ""}`;
+        document.getElementById("modal-confirm").disabled = false;
+        document.getElementById("modal-confirm").onclick = async () => {
+          try {
+            const r = await api(`/actions/${id}/evidence/manual`, { method: "POST", body: payload });
+            toast(r.readiness?.ready ? "Evidencia registrada — la acción ya está lista para completarse." : "Evidencia registrada — todavía no cumple todos los criterios.");
+            closeModal();
+            await loadActions();
+          } catch (err) { toast(err.message); }
+        };
+      });
       return;
     }
     if (kind === "complete") {

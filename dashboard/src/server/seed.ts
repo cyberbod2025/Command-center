@@ -68,17 +68,39 @@ export function buildSeedState(): CommandCenterState {
         "git log en main mostrando ambos squashes en orden",
       ],
     },
+    // Accion A: cerrar PR #2. Criterios verificables, no prosa: repo+PR exactos,
+    // estado fusionado, cero hilos abiertos y revision de Codex detectada.
     verification: {
       project: "Command Center",
       expectedRepo: "cyberbod2025/Command-center",
       allowedEvidenceKinds: ["pr_updated", "merge"],
       expectedPrNumber: 2,
       requiredState: "pr_merged",
-      extraConditions: [
-        "Esta decision cubre primero el cierre del PR #2. El PR #3 requiere su propia accion/paquete con expectedPrNumber=3 una vez el #2 este fusionado.",
-      ],
+      requireZeroOpenThreads: true,
+      requireCodexReview: true,
+      extraConditions: [],
       minEvidence: 1,
     },
+    // Accion B: cerrar PR #3, bloqueada hasta que la Accion A este completada
+    // (ver actions.ts::commitPreparedAction / dependsOnActionId). Ademas de
+    // repo+PR+estado+hilos+Codex, exige que la base ya apunte a main y una
+    // confirmacion manual explicita de que el diff quedo limitado a los
+    // cambios propios de la auditoria (no se infiere del texto).
+    additionalActionPlan: [
+      {
+        project: "Command Center",
+        expectedRepo: "cyberbod2025/Command-center",
+        allowedEvidenceKinds: ["pr_updated", "merge", "manual"],
+        expectedPrNumber: 3,
+        expectedBaseBranch: "main",
+        requiredState: "pr_merged",
+        requireZeroOpenThreads: true,
+        requireCodexReview: true,
+        requiredManualConfirmationTags: ["diff_scope_confirmado"],
+        extraConditions: [],
+        minEvidence: 1,
+      },
+    ],
     state: "propuesta",
   });
 

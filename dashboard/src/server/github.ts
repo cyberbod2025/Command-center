@@ -62,12 +62,23 @@ export interface CheckRun {
   conclusion: string | null;
 }
 
+export interface ReviewEntry {
+  author: string | null;
+  state: string;
+}
+
 export interface PullRequestDetail extends PullRequestSummary {
   mergeable: string | null;
   reviewDecision: string | null;
   commitsCount: number;
   reviewThreads: ReviewThread[];
   checks: CheckRun[];
+  reviews: ReviewEntry[];
+}
+
+/** ¿Hay alguna revision de un autor que parezca ser el bot de Codex? */
+export function hasCodexReview(reviews: ReviewEntry[]): boolean {
+  return reviews.some((r) => /codex/i.test(r.author ?? ""));
 }
 
 async function runGh(args: string[]): Promise<string> {
@@ -175,7 +186,7 @@ export async function getPullRequest(repo: string, number: number): Promise<Pull
     "--repo",
     repo,
     "--json",
-    "number,title,state,isDraft,baseRefName,headRefName,headRefOid,url,createdAt,updatedAt,mergeable,reviewDecision,commits,statusCheckRollup",
+    "number,title,state,isDraft,baseRefName,headRefName,headRefOid,url,createdAt,updatedAt,mergeable,reviewDecision,commits,statusCheckRollup,reviews",
   ]);
   const view = JSON.parse(viewOut) as {
     number: number;
@@ -192,6 +203,7 @@ export async function getPullRequest(repo: string, number: number): Promise<Pull
     reviewDecision: string | null;
     commits: unknown[];
     statusCheckRollup: Array<{ name?: string; workflowName?: string; status?: string; conclusion?: string | null }> | null;
+    reviews: Array<{ author?: { login?: string } | null; state?: string }> | null;
   };
 
   let threads: ReviewThread[] = [];
@@ -244,6 +256,11 @@ export async function getPullRequest(repo: string, number: number): Promise<Pull
     conclusion: c.conclusion ?? null,
   }));
 
+  const reviews: ReviewEntry[] = (view.reviews ?? []).map((r) => ({
+    author: r.author?.login ?? null,
+    state: r.state ?? "UNKNOWN",
+  }));
+
   return {
     number: view.number,
     title: view.title,
@@ -260,6 +277,7 @@ export async function getPullRequest(repo: string, number: number): Promise<Pull
     commitsCount: Array.isArray(view.commits) ? view.commits.length : 0,
     reviewThreads: threads,
     checks,
+    reviews,
   };
 }
 

@@ -36,7 +36,8 @@ Decision {
   reversibilityNote: string
   affected: string[]          // archivos / repos / servicios que podría tocar
   plan: ExecutionPlan         // ver abajo
-  verification: VerificationCriteria  // ver "Vinculación de evidencia" abajo
+  verification: VerificationCriteria  // criterios de la PRIMERA (o única) acción
+  additionalActionPlan?: VerificationCriteria[]  // ver "Cadena de acciones dependientes" abajo
   state: DecisionState        // ver máquina de estados
   rejectionReason?: string
   history: HistoryEntry[]
@@ -65,13 +66,39 @@ VerificationCriteria {
   expectedPrNumber?: number
   expectedBranch?: string
   expectedCommitShort?: string
+  expectedBaseBranch?: string    // rama BASE requerida (p. ej. "main"), distinta de expectedBranch (head)
   requiredState: "pr_open" | "pr_closed" | "pr_merged" | "comment_published"
                | "thread_resolved" | "checks_green" | "commit_exists"
                | "manual_confirmation"
-  extraConditions: string[]
+  requireZeroOpenThreads?: boolean   // exige openThreads === 0 en la evidencia
+  requireCodexReview?: boolean       // exige evidencia.codexReviewFound === true
+  requiredManualConfirmationTags?: string[]  // confirmaciones manuales EXTRA, aparte de minEvidence
+  extraConditions: string[]      // solo contexto para humanos — nunca se evalua para completar
   minEvidence: number
 }
 ```
+
+## Cadena de acciones dependientes (`additionalActionPlan`)
+
+Cuando una decisión exige más de un resultado verificable en orden — como
+cerrar primero el PR #2 y luego el PR #3 —, `verification` describe la
+**primera** acción y `additionalActionPlan` (array) describe cada acción
+siguiente. `actions.ts::resolveNextChainSlot`:
+
+- no permite generar la acción N+1 mientras la acción N no esté `completada`
+  (lanza `ChainBlockedError`);
+- no permite generar dos veces la misma posición de la cadena si ya hay un
+  intento vivo (no `fallida`) para ella — evita duplicar acciones en curso;
+- sí permite **reintentar** una posición cuyo único intento previo terminó
+  `fallida` (p. ej. tras un fallo al publicar el paquete, ver más abajo).
+
+Cada `ActionRecord` generado guarda `chainIndex` (su posición 0-basada) y
+`dependsOnActionId` (el ID de la acción anterior, si la hay).
+`completeActionIfVerified` rechaza completar una acción si su
+`dependsOnActionId` aún no está `completada`, y la **decisión** superior
+solo pasa a `completada` cuando **todas** las posiciones de la cadena tienen
+una acción `completada` — mientras falten, pasa a `en_ejecucion`, nunca a
+`completada` por el solo hecho de que la primera acción se cierre.
 
 `verification.ts::evidenceSatisfies(evidencia, criterios)` es la única función
 que decide si una evidencia concreta cuenta: compara tipo, repositorio, PR,
@@ -110,9 +137,18 @@ EffectivePlan {
 
 El paquete Markdown generado (`actions.ts::renderPackageMarkdown`) incluye,
 cuando hay modificaciones, las secciones "Propuesta original",
-"Modificaciones aprobadas por Hugo", "Plan efectivo final" y "Diferencias" —
+"Modificaciones aprobadas por Hugo", "Pasos efectivos" y "Diferencias" —
 una restricción o condición que Hugo agregó aparece literalmente en el
 archivo, dentro de "Restricciones obligatorias" o "Validaciones necesarias".
+
+**Orden estructurado, no texto libre.** `Modification.orden` se interpreta
+como una permutación 1-basada de las posiciones actuales de `pasos`
+(`verification.ts::applyOrderModification`, formato `"3,1,2"`). Debe listar
+cada posición exactamente una vez; si no es una permutación exacta —texto
+libre, posiciones repetidas u omitidas—, `computeEffectivePlan` lanza
+`AmbiguousOrderModificationError` y **no se genera ningún paquete**. El
+resultado reemplaza por completo la secuencia (nunca coexisten el orden
+nuevo y el original en "Pasos efectivos").
 
 ## Estados de decisión
 
@@ -137,6 +173,8 @@ ActionRecord {
   status: "generada" | "enviada" | "en_ejecucion" | "verificada"
         | "completada" | "fallida" | "cancelada"
   verification: VerificationCriteria   // copia congelada al generar el paquete
+  dependsOnActionId?: string   // ver "Cadena de acciones dependientes"
+  chainIndex?: number          // posicion 0-basada dentro de la cadena de la decision
   sentTo?: { ts, agent, notes? }
   evidence: ActionEvidence[]
   history: HistoryEntry[]
@@ -153,22 +191,49 @@ ActionEvidence {
   repo?: string
   prNumber?: number
   prState?: "OPEN" | "CLOSED" | "MERGED"
-  branch?: string
+  branch?: string           // rama head del PR
+  baseBranch?: string       // rama base del PR
   commitShort?: string
   openThreads?: number
   totalThreads?: number
   checksAllGreen?: boolean
+  codexReviewFound?: boolean
   commentUrl?: string
   commentId?: string
+  confirmationTag?: string  // vincula esta evidencia a un requiredManualConfirmationTags
+  // campos de evidencia MANUAL (Teacher OS / Supabase / otras fuentes sin GitHub):
+  evidenceType?: string
+  source?: string
+  occurredAt?: string
+  responsible?: string
+  reference?: string
+  notes?: string
 }
 ```
 
-`completeActionIfVerified` (en `actions.ts`) cuenta cuántas evidencias
-satisfacen exactamente `action.verification` (ver
-`verification.ts::countSatisfyingEvidence`) y lanza si el total es menor que
-`verification.minEvidence` — es la regla que impide que la app "finja" una
+`completeActionIfVerified` (en `actions.ts`) usa
+`verification.ts::checkCompletion(evidencia, criterios)`, que cuenta cuántas
+evidencias satisfacen exactamente `action.verification`
+(`countSatisfyingEvidence`) y además exige una evidencia manual por cada
+`requiredManualConfirmationTags` — lanza si cualquiera de las dos
+condiciones no se cumple. Es la regla que impide que la app "finja" una
 ejecución, y que impide que evidencia genérica ("alguna cosa se verificó
-contra GitHub") cierre una acción que exige un PR, repo o estado concretos.
+contra GitHub", o `verifiedAgainstGithub` aislado) cierre una acción que
+exige un PR, repo, estado o confirmación manual concretos. El mismo
+`checkCompletion` alimenta `GET /api/actions/:id/readiness`, que la interfaz
+consulta para habilitar "Completar" — nunca decide solo con
+`verifiedAgainstGithub`.
+
+## Evidencia manual desde la interfaz
+
+Para acciones con `verification.expectedRepo === null` (Teacher OS, SASE
+Zero/Supabase, o cualquier fuente sin GitHub), `POST
+/api/actions/:id/evidence/manual` acepta `description`, `evidenceType`,
+`source`, `occurredAt`, `responsible`, `reference`, `notes` y
+`confirmationTag` — siempre crea evidencia `kind: "manual"`,
+`verifiedAgainstGithub: false`; nunca puede colarse como evidencia de
+GitHub. La respuesta incluye el `readiness` recalculado para que la
+interfaz sepa de inmediato si la acción ya puede completarse.
 
 ## AuditEntry
 

@@ -4,6 +4,7 @@ import {
   ALLOWED_REPOS,
   getAuthStatus,
   getPullRequest,
+  hasCodexReview,
   isAllowedRepo,
   listPullRequests,
   postPullRequestComment,
@@ -24,13 +25,16 @@ import {
   ActionNotFoundError,
   ActionNotWritableError,
   addActionEvidence,
+  addManualEvidence,
   assertCanPublishComment,
+  ChainBlockedError,
   completeActionIfVerified,
   findAction,
   generateExecutionPackage,
+  getActionReadiness,
   markActionSent,
 } from "./actions.js";
-import { assertRequestMatchesCriteria, EvidenceMismatchError } from "./verification.js";
+import { AmbiguousOrderModificationError, assertRequestMatchesCriteria, EvidenceMismatchError } from "./verification.js";
 import { recordAudit } from "./audit.js";
 import { getSaseZeroFront, getTeacherOsFront, getNuevoHorizonteFront } from "./fronts.js";
 import path from "node:path";
@@ -48,7 +52,9 @@ export function buildRouter(store: StateStore, actionsDir: string): Router {
       err instanceof InvalidTransitionError ||
       err instanceof RepoNotAllowedError ||
       err instanceof EvidenceMismatchError ||
-      err instanceof ActionNotWritableError
+      err instanceof ActionNotWritableError ||
+      err instanceof ChainBlockedError ||
+      err instanceof AmbiguousOrderModificationError
     ) {
       res.status(400).json({ error: err.message });
       return;
@@ -247,16 +253,18 @@ export function buildRouter(store: StateStore, actionsDir: string): Router {
         expectedBranch: typeof req.body?.expectedBranch === "string" ? req.body.expectedBranch : undefined,
         expectedCommitShort: typeof req.body?.expectedCommitShort === "string" ? req.body.expectedCommitShort : undefined,
       };
-      const result = await store.mutate(async (state) => {
-        const r = await generateExecutionPackage(state, req.params.id, actionsDir, override);
+      // generateExecutionPackage orquesta su propia secuencia de mutaciones
+      // (escritura temporal -> commit del estado -> renombrado final) para
+      // no dejar nunca un paquete Markdown sin accion asociada.
+      const result = await generateExecutionPackage(store, req.params.id, actionsDir, override);
+      await store.mutate((state) => {
         recordAudit(state, {
           actor: "hugo",
           category: "action",
           action: "generate_package",
-          detail: `Paquete generado en ${r.packagePath}`,
-          refId: r.action.id,
+          detail: `Paquete generado en ${result.packagePath}`,
+          refId: result.action.id,
         });
-        return r;
       });
       res.json(result);
     } catch (err) {
@@ -329,9 +337,11 @@ export function buildRouter(store: StateStore, actionsDir: string): Router {
       const pr = await getPullRequest(repo, prNumber);
       const openThreads = pr.reviewThreads.filter((t) => !t.isResolved).length;
       const checksAllGreen = pr.checks.length > 0 && pr.checks.every((c) => c.conclusion === "SUCCESS" || c.conclusion === "success");
+      const codexReviewFound = hasCodexReview(pr.reviews);
       const description =
-        `PR #${pr.number} (${repo}) estado=${pr.state}, mergeable=${pr.mergeable ?? "desconocido"}, ` +
+        `PR #${pr.number} (${repo}) estado=${pr.state}, base=${pr.baseRefName}, mergeable=${pr.mergeable ?? "desconocido"}, ` +
         `reviewDecision=${pr.reviewDecision ?? "ninguna"}, hilos abiertos=${openThreads}/${pr.reviewThreads.length}, ` +
+        `revision Codex=${codexReviewFound ? "si" : "no"}, ` +
         `checks=${pr.checks.map((c) => `${c.name}:${c.conclusion ?? c.status}`).join(", ") || "sin checks"}`;
 
       const a = await store.mutate((state) => {
@@ -344,10 +354,12 @@ export function buildRouter(store: StateStore, actionsDir: string): Router {
           prNumber: pr.number,
           prState: pr.state,
           branch: pr.headRefName,
+          baseBranch: pr.baseRefName,
           commitShort: pr.headRefOidShort,
           openThreads,
           totalThreads: pr.reviewThreads.length,
           checksAllGreen,
+          codexReviewFound,
         });
         recordAudit(state, { actor: "sistema", category: "github_read", action: "verify", detail: description, refId: action.id });
         return action;
@@ -358,23 +370,40 @@ export function buildRouter(store: StateStore, actionsDir: string): Router {
     }
   });
 
+  router.get("/actions/:id/readiness", async (req, res) => {
+    try {
+      const state = await store.load();
+      res.json(getActionReadiness(state, req.params.id));
+    } catch (err) {
+      handleError(res, err);
+    }
+  });
+
   router.post("/actions/:id/evidence/manual", async (req, res) => {
     try {
-      const description = String(req.body?.description || "").trim();
-      if (!description) {
-        res.status(400).json({ error: "La descripcion de evidencia no puede estar vacia" });
-        return;
-      }
+      const input = {
+        description: String(req.body?.description || ""),
+        evidenceType: String(req.body?.evidenceType || ""),
+        source: typeof req.body?.source === "string" ? req.body.source : undefined,
+        occurredAt: typeof req.body?.occurredAt === "string" ? req.body.occurredAt : undefined,
+        responsible: typeof req.body?.responsible === "string" ? req.body.responsible : undefined,
+        reference: typeof req.body?.reference === "string" ? req.body.reference : undefined,
+        notes: typeof req.body?.notes === "string" ? req.body.notes : undefined,
+        confirmationTag: typeof req.body?.confirmationTag === "string" ? req.body.confirmationTag : undefined,
+      };
       const a = await store.mutate((state) => {
-        const action = addActionEvidence(state, req.params.id, {
-          kind: "manual",
-          description,
-          verifiedAgainstGithub: false,
+        const action = addManualEvidence(state, req.params.id, input);
+        recordAudit(state, {
+          actor: "hugo",
+          category: "action",
+          action: "evidence_manual",
+          detail: `${input.evidenceType}: ${input.description}`,
+          refId: action.id,
         });
-        recordAudit(state, { actor: "hugo", category: "action", action: "evidence_manual", detail: description, refId: action.id });
         return action;
       });
-      res.json({ action: a });
+      const state = await store.load();
+      res.json({ action: a, readiness: getActionReadiness(state, req.params.id) });
     } catch (err) {
       handleError(res, err);
     }
