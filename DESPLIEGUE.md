@@ -15,6 +15,10 @@
 
 Vercel `sase-light` no tiene integración git enlazada (`framework: null`) — los deploys se hicieron por CLI, no por push automático. Cualquier deploy nuevo requiere `vercel deploy` manual desde `SASE-ZERO/` hasta que se decida enlazar el repo (fuera de alcance salvo que Hugo lo pida).
 
+### Prerrequisito específico: SASE Zero
+
+Antes de desplegar, rotar o cambiar cualquier variable de SASE Zero: confirmar el project ref en la cuenta propietaria; revisar variables de Vercel y GitHub environments; comprobar que URL y clave publishable corresponden al mismo proyecto; validar RLS y políticas; e inventariar dependencias remotas. Nunca sustituir automáticamente la configuración por `SASE-Light`.
+
 ---
 
 ## Procedimiento estándar para conectar un frente (Vercel + Supabase)
