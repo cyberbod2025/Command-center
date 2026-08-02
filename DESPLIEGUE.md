@@ -10,9 +10,8 @@
 | Frente | Vercel | Supabase | Conectados entre sí | Listo para desplegar |
 |---|---|---|---|---|
 | Teacher OS | no existe | no existe | — | No: sin `ALCANCE.md` cerrado no se abre infraestructura |
-| SASE Zero | `sase-light` (`prj_DTSGZfqdmvxb7KFZCKCkCt8Cbuc2`), deploy `READY`, dominios activos | `SASE-Light` (`plyjvvpkaafnkxmmqkbh`), `ACTIVE_HEALTHY` | **No — desalineado.** `app/.env` apunta a `VITE_SUPABASE_URL=https://nchofzlpswojqrigbbbk.supabase.co`, una ref que **no aparece en `list_projects` de la cuenta actual**. Ver R-11 | **No hasta resolver R-11** |
-| Proyecto Horizonte (CodeBrain) | no existe | no existe (a propósito, ver D-005) | — | No: D-005 aplaza Supabase/despliegue hasta cerrar migración v2 (7 módulos restantes). **No desplegar aunque el build esté verde** |
-| Nuevo Horizonte | no existe | no existe | — | No: sin diagnóstico ni carpeta |
+| SASE Zero | `sase-light` (`prj_DTSGZfqdmvxb7KFZCKCkCt8Cbuc2`), deploy `READY`, dominios activos | **Desconocido/no verificable desde esta cuenta.** `app/.env` apunta a `VITE_SUPABASE_URL=https://nchofzlpswojqrigbbbk.supabase.co`, una ref que no aparece en `list_projects` de la cuenta conectada. `SASE-Light` (`plyjvvpkaafnkxmmqkbh`) **no es el proyecto correcto** — D-007 retirado confirma que el backend real vive en otra cuenta Supabase sin acceso desde este agente. No tratar `SASE-Light` como el Supabase de SASE Zero | **No — backend real sin acceso verificable.** Ver R-11 | **No hasta tener acceso a la cuenta correcta** |
+| Nuevo Horizonte (fusiona Proyecto Horizonte/CodeBrain, ver D-009) | no existe | no existe (a propósito, ver D-005) | — | No: D-005 aplaza Supabase/despliegue hasta cerrar migración v2 (módulos 10–12 pendientes). **No desplegar aunque el build esté verde** |
 
 Vercel `sase-light` no tiene integración git enlazada (`framework: null`) — los deploys se hicieron por CLI, no por push automático. Cualquier deploy nuevo requiere `vercel deploy` manual desde `SASE-ZERO/` hasta que se decida enlazar el repo (fuera de alcance salvo que Hugo lo pida).
 

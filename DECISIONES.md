@@ -15,7 +15,7 @@ Una decisión sin evidencia no pasa de `aprobada`.
 - **Riesgos:** Que el archivo se desactualice y se convierta en otra fuente muerta. Mitigación: se toca en cada cierre de día o no se toca nunca.
 - **Responsable:** Hugo
 - **Evidencia:** `_Shared/COMMAND-CENTER/ESTADO.md`
-- **Estado:** `aplicada`
+- **Estado:** `superada por D-013` (2026-08-01) — la fuente única de estado ya no es `_Shared/COMMAND-CENTER/ESTADO.md` (fuera de git), sino este repositorio, `Command-center/ESTADO.md`. `_Shared/COMMAND-CENTER` queda como copia histórica no autoritativa, pendiente de retirar (ver nota en `ESTADO.md`).
 
 ---
 
@@ -128,7 +128,7 @@ Una decisión sin evidencia no pasa de `aprobada`.
 - **Fecha:** 2026-07-31
 - **Decisión propuesta:** Reemplazar en `SASE-ZERO/app/.env` la ref inexistente `nchofzlpswojqrigbbbk` por el proyecto real `SASE-Light` (`plyjvvpkaafnkxmmqkbh`), único proyecto Supabase de la cuenta cuyo nombre coincide con el frente y está `ACTIVE_HEALTHY`.
   - `VITE_SUPABASE_URL=https://plyjvvpkaafnkxmmqkbh.supabase.co`
-  - `VITE_SUPABASE_ANON_KEY=sb_publishable_d3UOVIWIKW9_lYNQV7ywpw_7E0IaSI8` (publishable key real, obtenida por API, no inventada)
+  - `VITE_SUPABASE_ANON_KEY=<publishable key obtenida por API vía get_publishable_keys(plyjvvpkaafnkxmmqkbh), no inventada — valor real no se registra en este documento>`
 - **Motivo por el que no se aplicó directo:** `SASE-ZERO/CLAUDE.md` declara explícitamente que la fase actual **no autoriza implementación de producto**, solo arquitectura y documentación. Cambiar `.env` es un cambio funcional, no documental — necesita autorización explícita de Hugo o cambio de fase del proyecto.
 - **Riesgo si no se aplica:** El frente sigue "verde" en el panel mientras su backend real está roto — contradice la regla de evidencia del Command Center.
 - **Riesgo si se aplica sin confirmar:** `SASE-Light` es la coincidencia más probable por nombre, pero no está confirmado que sea el proyecto correcto (podría ser otra cuenta, un proyecto ya borrado, o un error de copiar/pegar de otro repo).

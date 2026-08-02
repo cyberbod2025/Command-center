@@ -39,7 +39,7 @@ El Command Center dejó de vivir solo como carpeta de documentos y ahora cuenta 
 | Bloqueador | Programa Sintético Fase 6 sin PDF auténtico de la SEP; Planeación anual/semanal bloqueada hasta resolverlo | R-11: proyecto Supabase real declarado por Hugo en **otra cuenta**, sin acceso verificable desde este agente | Ninguno activo |
 | Próxima acción | Conseguir y subir el PDF auténtico del Programa Sintético Fase 6 (folio 58) | Fijar definición de terminado del vertical slice | Migrar módulo 10 a v2, en rama corta (D-005) |
 | Responsable | Hugo | Hugo + Claude Code | Hugo + Claude Code |
-| Evidencia | `00_INICIO_Y_CONTROL/03_ESTADO_ACTUAL.md`, `09_CHECKPOINT_ULTIMA_SESION.md` (Drive) | `git log` | `git log`, `npx tsc --noEmit`, 74 pruebas con `lessonsV2.ts` al 100 % de cobertura, build, [PR #8](https://github.com/cyberbod2025/NUEVO-HORIZONTE/pull/8) |
+| Evidencia | `00_INICIO_Y_CONTROL/03_ESTADO_ACTUAL.md`, `09_CHECKPOINT_ULTIMA_SESION.md` (Drive) | `git log` | `d75cae0`, [PR #9](https://github.com/cyberbod2025/NUEVO-HORIZONTE/pull/9) mergeado por squash, rama borrada — **nota: esta fila cita el commit y PR del módulo 9 declarado en "Último avance verificado", pero no fue re-verificada con `tsc`/pruebas/build en esta sesión; la última corrida en verde confirmada aquí sigue siendo la del módulo 8 (74 pruebas, `lessonsV2.ts` 100 %, [PR #8](https://github.com/cyberbod2025/NUEVO-HORIZONTE/pull/8)). Pendiente: re-ejecutar `tsc`, pruebas y build para el módulo 9 antes de dar por cerrada esa evidencia** |
 | Fecha de revisión | 2026-07-31 | 2026-07-31 | 2026-08-01 |
 
 ### Nota histórica sobre Nuevo Horizonte / CodeBrain / Proyecto Horizonte
