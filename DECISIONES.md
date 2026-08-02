@@ -29,8 +29,8 @@ Una decisión sin evidencia no pasa de `aprobada`.
 - **Riesgos:** Empezar sin alcance definido reproduce el problema de "documentación que crece más rápido que el producto". Mitigación: el primer y único documento de Teacher OS es su alcance mínimo.
 - **Responsable:** Hugo
 - **Evidencia:** `Projects/TEACHER-OS/ALCANCE.md`
-- **Estado:** `aplicada`
-- **Corregida 2026-07-31:** la premisa "Teacher OS nunca se materializó" era **falsa**. Existe `G:\Mi unidad\TEACHER OS HUGO — CICLO 2026-2027`, con control de sesión, memoria pedagógica de continuidad (3°A/3°B terminada), currículo NEM/PDA, RC1 (Programa Analítico 2°) declarado canónico el 27-jul-2026, y bitácora activa hasta esa fecha. La búsqueda original solo cubrió disco local (`C:/HUGO_SYSTEM`), no Drive. `Projects/TEACHER-OS/ALCANCE.md`, creado bajo la premisa errónea, debe revisarse contra el estado real en Drive antes de seguir usándose como fuente. Ver aprendizaje correspondiente en `RIESGOS.md`.
+- **Estado:** `retirada` — la instrucción de crear Teacher OS desde cero en `Projects/TEACHER-OS` **no debe interpretarse como directiva vigente**. Ningún agente debe inicializar git ni poblar esa carpeta como si fuera el proyecto.
+- **Corregida y retirada 2026-07-31:** la premisa "Teacher OS nunca se materializó" era **falsa**. Existe `G:\Mi unidad\TEACHER OS HUGO — CICLO 2026-2027`, con control de sesión, memoria pedagógica de continuidad (3°A/3°B terminada), currículo NEM/PDA, RC1 (Programa Analítico 2°) declarado canónico el 27-jul-2026, y bitácora activa hasta esa fecha. La búsqueda original solo cubrió disco local (`C:/HUGO_SYSTEM`), no Drive. Esta decisión queda **anulada por evidencia posterior**: **Teacher OS vive en Google Drive, no tiene repositorio Git, y la carpeta local `Projects/TEACHER-OS` es únicamente técnica — no debe inicializarse ni poblarse como proyecto**. La decisión vigente es la que reconoce Drive como fuente canónica. `Projects/TEACHER-OS/ALCANCE.md`, creado bajo la premisa errónea, no debe usarse como fuente sin revisarse contra el estado real en Drive. Ver aprendizaje correspondiente en `RIESGOS.md`.
 
 ---
 
