@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Command Center — Hugo</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <p class="brand-eyebrow">Portafolio de Hugo · app local</p>
+        <h1>Command Center</h1>
+      </div>
+      <div class="top-meta">
+        <div id="gh-status" class="gh-pill">comprobando GitHub…</div>
+        <div style="margin-top:6px;">estado persistido en <code style="font-family:var(--mono)">dashboard/data/command-center-state.json</code></div>
+      </div>
+    </header>
+
+    <div class="kpis" id="kpis"></div>
+
+    <section class="block">
+      <h2 class="sec">Frentes del portafolio</h2>
+      <div class="frentes" id="frentes-grid"><p class="empty-note">Cargando…</p></div>
+    </section>
+
+    <section class="block">
+      <h2 class="sec">Command Center / GitHub (lectura en vivo)</h2>
+      <div class="terminal">
+        <div class="term-head"><span id="term-title">github.com/cyberbod2025/Command-center — pull requests</span></div>
+        <div class="term-body" id="cc-prs"><span>Cargando…</span></div>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2 class="sec">Decisiones para Hugo</h2>
+      <div class="proto-banner">
+        <b>Ciclo de accion.</b> Aceptar/modificar/preguntar/proponer solo cambian el estado de la decision y quedan guardados en disco. Generar un paquete crea un archivo real en <code style="font-family:var(--mono)">data/actions/</code>. Nada se ejecuta contra GitHub salvo lo que confirmes explicitamente en "Solicitar ejecucion" → publicar comentario.
+      </div>
+      <div class="filterbar" id="decision-filters"></div>
+      <div class="decisions" id="decisions-grid"><p class="empty-note">Cargando…</p></div>
+    </section>
+
+    <section class="block">
+      <h2 class="sec">Cola de acciones</h2>
+      <div id="actions-list"><p class="empty-note">Sin acciones generadas todavia.</p></div>
+    </section>
+
+    <section class="block">
+      <h2 class="sec">Auditoría</h2>
+      <div id="audit-list"><p class="empty-note">Cargando…</p></div>
+    </section>
+
+    <section class="block" style="margin-bottom:0;">
+      <h2 class="sec">Leyenda</h2>
+      <div class="legend">
+        <span class="lg-item"><span class="ldot" style="background:var(--green)"></span> Dato en vivo de GitHub</span>
+        <span class="lg-item"><span class="ldot" style="background:var(--amber)"></span> Dato manual / documental</span>
+        <span class="lg-item"><span class="ldot" style="background:var(--text-dim)"></span> n/d — sin definición de terminado, no se calcula %</span>
+        <span class="lg-item"><span class="ldot" style="background:var(--red)"></span> Bloqueado</span>
+      </div>
+    </section>
+
+    <footer class="disclaim">
+      <p>Aplicación local de solo lectura + acciones seguras explícitas. No fusiona PRs, no borra ramas, no hace force-push, no rota claves, no toca Supabase ni Drive. Toda acción remota de escritura (publicar comentario) requiere confirmación explícita y deja evidencia verificable en GitHub antes de marcarse como completada.</p>
+    </footer>
+  </div>
+
+  <div class="modal-overlay" id="modal-root">
+    <div class="modal-box">
+      <div class="modal-head"><h3 id="modal-title">—</h3><button class="modal-close" id="modal-close" aria-label="Cerrar">✕</button></div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-foot" id="modal-foot"></div>
+    </div>
+  </div>
+  <div class="toast-root" id="toast-root"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
